@@ -4,6 +4,10 @@
 //Players = new Meteor.Collection("players");
 var Paths = new Meteor.Collection("paths");
 
+if (Meteor.isServer) {
+  Paths._createCappedCollection(1000000, 100);
+}
+
 function addPath(path){
   var json = path.toJSON(), type = json[0], data = json[1];
   //console.log(type, data);
@@ -122,6 +126,12 @@ if (Meteor.isClient) {
       dragging = false;
     }
   }
+
+  function setRandomStrokeColor() {
+    // random color
+    _strokeColor = new paper.Color(Math.random(), Math.random(), Math.random());
+    return _strokeColor;
+  }
   
   function Draw(){
     var path;
@@ -130,7 +140,7 @@ if (Meteor.isClient) {
       if (e.button == 0){//left click
         path = new paper.Path({
           segments: [event.point],
-          strokeColor: 'black',
+          strokeColor: setRandomStrokeColor(),
           //fullySelected: true,
         });
         /*else if(tool == 'move'){
@@ -257,9 +267,10 @@ if (Meteor.isClient) {
   }
   
   var menu = new Menu();
-  var tools = {draw:new Draw(), erase:null, select:new Select(), move:new Move(), note:null};
+  var tools = {draw:new Draw(), erase:null, select:new Select(), move:new Move(), color: null};
   var tool = tools['draw'];
-  
+  var _strokeColor = "black";
+ 
   function initialize(){
     canvas = document.getElementById('canvas');
     paper.setup(canvas);
@@ -299,21 +310,55 @@ if (Meteor.isClient) {
     //    event.item.fullySelected = true;
     //}
     
-    //Meteor.subscribe('paths', function(){
-    //  //console.log('dah paths be loading', arguments, this);
-    //  renderPaths();
-    //});
+    Meteor.subscribe('paths', function(){
+      //console.log('dah paths be loading', arguments, this);
+      renderPaths();
+    });
     
     //get all of the current paths, then render them...
     Paths.find().observe({
       added: renderPaths,
       changed: renderPaths
     });
+
+    // random color
+    _strokeColor = new paper.Color(Math.random(), Math.random(), Math.random());
+
+    /*
+    document.addEventListener("DOMContentLoaded", function(event) { 
+      // add default iamge
+      var a = SVGSymbol("img/meteor-logo.svg");
+      
+      if(a){
+        var p = a.place();
+        p.position = new Point(100, 100);
+        p.scale(1);
+      }
+    });
+    */
     
     //deprecated?:
     Session.set("paper_initialized", true);
     console.log('initialized');
   }
+
+  /*
+  function SVGSymbol(file){
+    var sym = null;
+    
+    $.ajax({
+      type: "GET",
+      async: false,
+      url: file,
+      dataType: "xml",
+      success: function(xml){
+        sym = new Symbol(paper.project.importSVG(xml.getElementsByTagName("svg")[0]));
+      }
+      });
+
+    return sym;
+  }
+  */
   
   //var paths = {};
   function renderPaths(obj){
@@ -331,6 +376,7 @@ if (Meteor.isClient) {
 
 // On server startup, create some players if the database is empty.
 if (Meteor.isServer) {
+
   Meteor.publish("paths", function () {
     return Paths.find({});
   });
